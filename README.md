@@ -25,6 +25,7 @@ npm run preview
 - Drag and drop JSON file onto workspace
 - Auto-format valid JSON on paste/load (2 spaces)
 - Minify action
+- Friendly parser mode (default) for JSON-like input, with optional strict validation mode
 - Inline parse errors with line/column and editor highlighting
 - JSON tree with recursive expand/collapse and selected path bar
 - Desktop split pane with drag resize
@@ -43,3 +44,8 @@ npm run preview
 
 JSON error positions rely on runtime parser messages when available (for example, `position N`).
 If not provided by the runtime, JSON Maison falls back to a best-effort syntax scan to estimate line/column.
+
+## Parse Modes
+
+- Friendly mode (default): accepts JSON-like syntax (for example unquoted keys or single quotes) and normalizes unsupported tokens like `undefined` / `[Object]`.
+- Strict mode: validates with `JSON.parse` and rejects anything outside official JSON syntax.

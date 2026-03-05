@@ -9,7 +9,7 @@ import { AppStore } from './state';
 import { applyTheme, getInitialThemePreference, resolveTheme, toggleTheme, watchSystemTheme } from './theme';
 import { createToastManager } from './toasts';
 import { createTreeView } from './tree';
-import type { ParseErrorInfo } from './types';
+import type { ParseErrorInfo, ParseMode } from './types';
 
 const TOO_LARGE_MESSAGE = 'JSON exceeds 10MB limit. Please use a smaller file.';
 
@@ -67,6 +67,14 @@ export function initApp(root: HTMLElement): void {
             <div id="error-banner" class="error-banner" aria-live="polite" hidden></div>
             <div id="editor-host" class="editor-host"></div>
             <div class="source-actions" aria-label="Source actions">
+              <button
+                id="parse-mode-btn"
+                class="action-btn parse-mode-btn"
+                type="button"
+                aria-pressed="false"
+              >
+                Friendly JSON
+              </button>
               <button id="paste-btn" class="action-btn" type="button">Paste</button>
               <button id="upload-btn" class="action-btn" type="button">Upload</button>
               <button id="minify-btn" class="action-btn" type="button">Minify</button>
@@ -129,6 +137,7 @@ export function initApp(root: HTMLElement): void {
   const treeHost = byId<HTMLDivElement>('tree-host');
   const selectedPath = byId<HTMLElement>('selected-path');
   const errorBanner = byId<HTMLDivElement>('error-banner');
+  const parseModeBtn = byId<HTMLButtonElement>('parse-mode-btn');
   const pasteBtn = byId<HTMLButtonElement>('paste-btn');
   const uploadBtn = byId<HTMLButtonElement>('upload-btn');
   const uploadInput = byId<HTMLInputElement>('upload-input');
@@ -168,6 +177,7 @@ export function initApp(root: HTMLElement): void {
     selectedPath.textContent = state.selectedPath;
     syncMobileTabs(state.activeMobileTab);
     syncThemeButton(state.themePreference);
+    syncParseModeButton(state.parseMode);
   });
 
   const stopWatchingSystemTheme = watchSystemTheme(() => {
@@ -195,6 +205,25 @@ export function initApp(root: HTMLElement): void {
       tabButton.classList.toggle('is-active', isActive);
       tabButton.setAttribute('aria-selected', String(isActive));
       tabButton.tabIndex = isActive ? 0 : -1;
+    }
+  }
+
+  function syncParseModeButton(mode = store.get().parseMode): void {
+    const isStrict = mode === 'strict';
+    parseModeBtn.textContent = isStrict ? 'Strict JSON' : 'Friendly JSON';
+    parseModeBtn.setAttribute('aria-pressed', String(isStrict));
+    parseModeBtn.title = isStrict
+      ? 'Strict mode: only valid JSON is accepted'
+      : 'Friendly mode: accepts JSON-like syntax';
+    parseModeBtn.classList.toggle('is-strict', isStrict);
+  }
+
+  function showParseWarnings(warnings: string[]): void {
+    if (warnings.length === 0) {
+      return;
+    }
+    for (const warning of warnings) {
+      toast.show(warning);
     }
   }
 
@@ -263,6 +292,33 @@ export function initApp(root: HTMLElement): void {
     editor.focus();
   }
 
+  function reparseCurrentText(mode: ParseMode): void {
+    const rawText = editor.getValue();
+    store.set({ rawText, parseMode: mode });
+
+    if (!rawText.trim()) {
+      store.set({ parsedValue: null, parseError: null, selectedPath: '$' });
+      clearInlineError();
+      editor.highlightError(null);
+      tree.clear();
+      return;
+    }
+
+    if (exceedsSizeCap(rawText)) {
+      commitFriendlyError(rawText, TOO_LARGE_MESSAGE);
+      return;
+    }
+
+    const result = parseAndFormatJson(rawText, mode);
+    if ('error' in result) {
+      commitInvalidState(rawText, result.error);
+      return;
+    }
+
+    commitValidState(rawText, result.value);
+    showParseWarnings(result.warnings);
+  }
+
   function handleManualEditorChange(rawText: string): void {
     store.set({ rawText });
 
@@ -284,7 +340,7 @@ export function initApp(root: HTMLElement): void {
         return;
       }
 
-      const result = parseAndFormatJson(rawText);
+      const result = parseAndFormatJson(rawText, store.get().parseMode);
       if ('error' in result) {
         commitInvalidState(rawText, result.error);
         return;
@@ -305,7 +361,8 @@ export function initApp(root: HTMLElement): void {
       return;
     }
 
-    const result = parseAndFormatJson(text);
+    const parseMode = store.get().parseMode;
+    const result = parseAndFormatJson(text, parseMode);
     if ('error' in result) {
       editor.setValue(text);
       commitInvalidState(text, result.error);
@@ -314,6 +371,7 @@ export function initApp(root: HTMLElement): void {
 
     editor.setValue(result.formatted);
     commitValidState(result.formatted, result.value);
+    showParseWarnings(result.warnings);
     if (showFormatToast) {
       toast.show('Formatted JSON');
     }
@@ -409,7 +467,7 @@ export function initApp(root: HTMLElement): void {
       return;
     }
 
-    const result = minifyJson(raw);
+    const result = minifyJson(raw, store.get().parseMode);
     if ('error' in result) {
       commitInvalidState(raw, result.error);
       return;
@@ -417,12 +475,19 @@ export function initApp(root: HTMLElement): void {
 
     editor.setValue(result.minified);
     commitValidState(result.minified, result.value);
+    showParseWarnings(result.warnings);
     toast.show('Minified JSON');
     editor.focus();
   });
 
   clearBtn.addEventListener('click', () => {
     clearWorkspace();
+  });
+
+  parseModeBtn.addEventListener('click', () => {
+    const current = store.get().parseMode;
+    const next: ParseMode = current === 'strict' ? 'friendly' : 'strict';
+    reparseCurrentText(next);
   });
 
   themeToggleBtn.addEventListener('click', () => {

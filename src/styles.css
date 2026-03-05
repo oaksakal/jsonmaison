@@ -125,6 +125,12 @@ code {
   border-color: var(--accent);
 }
 
+.parse-mode-btn.is-strict {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .icon-btn {
   width: 36px;
   height: 36px;

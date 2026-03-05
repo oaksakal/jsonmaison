@@ -1,0 +1,82 @@
+{
+isSuccess: true,
+  data: {
+    url: '/customers/92530633/payments/27270703',
+    id: '27270703',
+    payment_network_response: {
+      payment_auth_code: 'OUEiB',
+      payment_response_code: null,
+      payment_response_msg: null
+    },
+    payment_status: 'processing',
+    payment_method: 'visa_debit',
+    confirmation_number: 'O8VV5N7XTT',
+    custom_fields: {
+      _txn_pymnt_schld_type: 'one_time_payment',
+      _payment_amount_type_value: '297.69',
+      _is_cancelable: 'false',
+      _is_editable: 'false',
+      _txn_pymnt_amount_type: 'other'
+    },
+    currency_code3d: 'USD',
+    amount: '297.69',
+    payment_date: '03/05/2026',
+    payment_request_date: '03/05/2026',
+    payment_amount_type: 'other',
+    payment_reference: 'acct_01KJXMXX899E06CQAX7E023HGQ_1772696960776',
+    expected_payment_settlement_date: '2026-03-05',
+    payment_schedule_type: 'one_time_payment',
+    payment_entry_date: null,
+    payment_return_date: null,
+    return_code: null,
+    payer: {
+      last_name: 'VINCENT',
+      email: null,
+      id: '92530633',
+      url: '/customers/92530633',
+      first_name: 'GALE',
+      middle_name: null,
+      ssn: null,
+      locale: 'en_US',
+      phone_number: null,
+      address: [Object],
+      status: null
+    },
+    funding_account: {
+      account_number: '************9990',
+      currency_code3d: null,
+      account_holder_name: 'Gale Vincent',
+      nickname: 'test',
+      address: [Object],
+      aba_routing_number: null,
+      issuer_name: null,
+      expiry_date: '12/28',
+      account_subtype: 'visa_debit',
+      id: '90155613',
+      url: '/customers/92530633/fundingaccounts/90155613',
+      ach_eligible_flag: null,
+      atm_eligible_flag: null,
+      card_cvv_number: null,
+      account_type: 'card',
+      account_holder_type: null,
+      status: 'active'
+    },
+    customer_account: {
+      id: '90155608',
+      nickname: null,
+      account_number: '01KJXMXXWPH7JCVABFWMRAHS5S',
+      address: null,
+      status: 'active',
+      account_holder_name: null,
+      url: '/customers/92530633/customeraccounts/90155608',
+      custom_fields: null
+    },
+    customer: {
+      id: '92530633',
+      address: '[object Object]',
+      status: null,
+      url: '/customers/92530633'
+    }
+  },
+  reason: undefined
+}

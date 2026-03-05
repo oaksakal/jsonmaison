@@ -7,6 +7,9 @@
   --border: #d6dbe3;
   --accent: #2d6cdf;
   --accent-soft: #e7efff;
+  --toast-bg: #edf4ff;
+  --toast-text: #0b1730;
+  --toast-border: #9cbcff;
   --error: #b42318;
   --error-bg: #fee4e2;
   --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
@@ -21,6 +24,9 @@
   --border: #2b3440;
   --accent: #72a0ff;
   --accent-soft: #1f2e4f;
+  --toast-bg: #1a2b46;
+  --toast-text: #e8f1ff;
+  --toast-border: #4f79c7;
   --error: #fda29b;
   --error-bg: rgba(180, 35, 24, 0.25);
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
@@ -374,11 +380,12 @@ code {
 }
 
 .toast {
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  border: 1px solid var(--toast-border);
+  border-left: 4px solid var(--accent);
   box-shadow: var(--shadow);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 8px 10px;
   font-size: 12px;
   opacity: 1;

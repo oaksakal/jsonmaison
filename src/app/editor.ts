@@ -17,6 +17,7 @@ import { basicSetup } from 'codemirror';
 import type { ParseErrorInfo } from './types';
 
 const setErrorOffset = StateEffect.define<number | null>();
+const setPathRange = StateEffect.define<{ from: number; to: number } | null>();
 
 const errorDecorationField = StateField.define<DecorationSet>({
   create() {
@@ -52,10 +53,42 @@ const errorDecorationField = StateField.define<DecorationSet>({
   }
 });
 
+const pathDecorationField = StateField.define<DecorationSet>({
+  create() {
+    return Decoration.none;
+  },
+  update(decorations, transaction) {
+    let next = decorations.map(transaction.changes);
+
+    for (const effect of transaction.effects) {
+      if (!effect.is(setPathRange)) {
+        continue;
+      }
+
+      const value = effect.value;
+      if (value === null || transaction.state.doc.length === 0) {
+        next = Decoration.none;
+        continue;
+      }
+
+      const from = Math.max(0, Math.min(value.from, transaction.state.doc.length));
+      const to = Math.max(from + 1, Math.min(value.to, transaction.state.doc.length));
+
+      next = Decoration.set([Decoration.mark({ class: 'cm-path-highlight' }).range(from, to)]);
+    }
+
+    return next;
+  },
+  provide(field) {
+    return EditorView.decorations.from(field);
+  }
+});
+
 export interface JsonEditor {
   getValue: () => string;
   setValue: (value: string) => void;
   highlightError: (error: ParseErrorInfo | null) => void;
+  highlightPath: (range: { from: number; to: number } | null) => void;
   focus: () => void;
   destroy: () => void;
 }
@@ -78,6 +111,7 @@ export function createJsonEditor(
     json(),
     placeholder('Paste JSON here or drop a file'),
     errorDecorationField,
+    pathDecorationField,
     onUpdate,
     EditorView.theme({
       '&': {
@@ -98,6 +132,10 @@ export function createJsonEditor(
       '.cm-error-char': {
         backgroundColor: 'var(--error-bg)',
         borderBottom: '1px solid var(--error)'
+      },
+      '.cm-path-highlight': {
+        backgroundColor: 'color-mix(in srgb, var(--accent) 20%, transparent)',
+        borderRadius: '2px'
       }
     })
   ];
@@ -146,6 +184,18 @@ export function createJsonEditor(
         scrollIntoView: true
       });
       view.focus();
+    },
+    highlightPath(range) {
+      if (!range) {
+        view.dispatch({ effects: setPathRange.of(null) });
+        return;
+      }
+
+      const from = Math.max(0, Math.min(range.from, view.state.doc.length));
+      const to = Math.max(from + 1, Math.min(range.to, view.state.doc.length));
+      view.dispatch({
+        effects: [setPathRange.of({ from, to }), EditorView.scrollIntoView(from, { y: 'center' })]
+      });
     },
     focus() {
       view.focus();

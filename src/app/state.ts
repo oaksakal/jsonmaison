@@ -13,7 +13,7 @@ export class AppStore {
       parsedValue: null,
       parseError: null,
       parseMode: 'friendly',
-      selectedPath: '$',
+      selectedPath: null,
       activeMobileTab: 'editor',
       splitPx: 560,
       themePreference,

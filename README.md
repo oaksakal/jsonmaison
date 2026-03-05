@@ -25,10 +25,10 @@ npm test
 - Upload `.json` file
 - Drag and drop JSON file onto workspace
 - Auto-format valid JSON on paste/load (2 spaces)
-- Minify action
+- Minify and Prettify actions
 - Friendly parser mode (default) for JSON-like input, with optional strict validation mode
 - Inline parse errors with line/column and editor highlighting
-- JSON tree with recursive expand/collapse and selected path bar
+- JSON tree with recursive expand/collapse, selected path bar, and source highlight on selection
 - Desktop split pane with drag resize
 - Mobile Editor/Tree tabs
 - System theme by default, manual toggle persisted

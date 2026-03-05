@@ -26,7 +26,7 @@ export interface AppState {
   parsedValue: unknown | null;
   parseError: ParseErrorInfo | null;
   parseMode: ParseMode;
-  selectedPath: string;
+  selectedPath: string | null;
   activeMobileTab: MobileTab;
   splitPx: number;
   themePreference: ThemePreference;

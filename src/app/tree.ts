@@ -1,20 +1,27 @@
 import type { PathSegment } from './types';
 
 export interface TreeView {
-  render: (value: unknown, selectedPath: string) => void;
+  render: (value: unknown, selectedPath: string | null) => void;
   clear: () => void;
 }
 
 export function createTreeView(
   container: HTMLElement,
-  onSelect: (path: string) => void
+  onSelect: (path: string | null) => void
 ): TreeView {
   const expansionState = new Map<string, boolean>([['$', true]]);
 
   let currentValue: unknown = null;
-  let currentSelectedPath = '$';
+  let currentSelectedPath: string | null = null;
 
-  function render(value: unknown, selectedPath: string): void {
+  container.addEventListener('click', (event) => {
+    if (event.target !== container) {
+      return;
+    }
+    onSelect(null);
+  });
+
+  function render(value: unknown, selectedPath: string | null): void {
     currentValue = value;
     currentSelectedPath = selectedPath;
     container.innerHTML = '';
@@ -28,13 +35,13 @@ export function createTreeView(
 
   function clear(): void {
     currentValue = null;
-    currentSelectedPath = '$';
+    currentSelectedPath = null;
     container.innerHTML = '<div class="tree-empty">Tree appears here after valid JSON.</div>';
   }
 
   function renderNode(parent: HTMLElement, value: unknown, path: PathSegment[], depth: number): void {
     const pathText = formatPath(path);
-    const selected = pathText === currentSelectedPath;
+    const selected = currentSelectedPath !== null && pathText === currentSelectedPath;
     const keyLabel = nodeLabel(path);
 
     if (value !== null && typeof value === 'object') {

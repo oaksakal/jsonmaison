@@ -1,4 +1,5 @@
 import { createJsonEditor } from './editor';
+import { parse as parseJsonSourceMap } from 'json-source-map';
 import {
   exceedsSizeCap,
   isFileTooLarge,
@@ -78,6 +79,7 @@ export function initApp(root: HTMLElement): void {
               <button id="paste-btn" class="action-btn" type="button">Paste</button>
               <button id="upload-btn" class="action-btn" type="button">Upload</button>
               <button id="minify-btn" class="action-btn" type="button">Minify</button>
+              <button id="prettify-btn" class="action-btn" type="button">Prettify</button>
               <button id="clear-btn" class="action-btn" type="button">Clear</button>
               <input id="upload-input" type="file" accept=".json,application/json,text/json" hidden />
             </div>
@@ -94,7 +96,7 @@ export function initApp(root: HTMLElement): void {
           >
             <div class="path-bar">
               <span>Selected path</span>
-              <code id="selected-path">$</code>
+              <code id="selected-path">None</code>
             </div>
             <div id="tree-host" class="tree-host"></div>
           </section>
@@ -142,6 +144,7 @@ export function initApp(root: HTMLElement): void {
   const uploadBtn = byId<HTMLButtonElement>('upload-btn');
   const uploadInput = byId<HTMLInputElement>('upload-input');
   const minifyBtn = byId<HTMLButtonElement>('minify-btn');
+  const prettifyBtn = byId<HTMLButtonElement>('prettify-btn');
   const clearBtn = byId<HTMLButtonElement>('clear-btn');
   const themeToggleBtn = byId<HTMLButtonElement>('theme-toggle');
   const toastRoot = byId<HTMLDivElement>('toast-root');
@@ -164,6 +167,7 @@ export function initApp(root: HTMLElement): void {
     if (state.parsedValue !== null) {
       tree.render(state.parsedValue, path);
     }
+    syncPathHighlight(path);
   });
   tree.clear();
 
@@ -174,7 +178,7 @@ export function initApp(root: HTMLElement): void {
   store.subscribe((state) => {
     workspace.dataset.activeTab = state.activeMobileTab;
     panes.style.setProperty('--left-pane-width', `${state.splitPx}px`);
-    selectedPath.textContent = state.selectedPath;
+    selectedPath.textContent = state.selectedPath ?? 'None';
     syncMobileTabs(state.activeMobileTab);
     syncThemeButton(state.themePreference);
     syncParseModeButton(state.parseMode);
@@ -227,6 +231,16 @@ export function initApp(root: HTMLElement): void {
     }
   }
 
+  function syncPathHighlight(path: string | null): void {
+    if (!path) {
+      editor.highlightPath(null);
+      return;
+    }
+
+    const range = findPathRange(editor.getValue(), path);
+    editor.highlightPath(range);
+  }
+
   function showInlineError(message: string): void {
     errorBanner.hidden = false;
     errorBanner.textContent = message;
@@ -237,7 +251,7 @@ export function initApp(root: HTMLElement): void {
     errorBanner.textContent = '';
   }
 
-  function commitValidState(rawText: string, parsedValue: unknown, path = '$'): void {
+  function commitValidState(rawText: string, parsedValue: unknown, path: string | null = null): void {
     store.set({
       rawText,
       parsedValue,
@@ -247,6 +261,7 @@ export function initApp(root: HTMLElement): void {
     clearInlineError();
     editor.highlightError(null);
     tree.render(parsedValue, path);
+    syncPathHighlight(path);
   }
 
   function commitInvalidState(rawText: string, parseError: ParseErrorInfo): void {
@@ -254,10 +269,11 @@ export function initApp(root: HTMLElement): void {
       rawText,
       parsedValue: null,
       parseError,
-      selectedPath: '$',
+      selectedPath: null,
     });
     showInlineError(parseError.message);
     editor.highlightError(parseError);
+    editor.highlightPath(null);
     tree.clear();
   }
 
@@ -266,10 +282,11 @@ export function initApp(root: HTMLElement): void {
       rawText,
       parsedValue: null,
       parseError: null,
-      selectedPath: '$',
+      selectedPath: null,
     });
     showInlineError(message);
     editor.highlightError(null);
+    editor.highlightPath(null);
     tree.clear();
   }
 
@@ -284,10 +301,11 @@ export function initApp(root: HTMLElement): void {
       rawText: '',
       parsedValue: null,
       parseError: null,
-      selectedPath: '$',
+      selectedPath: null,
     });
     clearInlineError();
     editor.highlightError(null);
+    editor.highlightPath(null);
     tree.clear();
     editor.focus();
   }
@@ -297,9 +315,10 @@ export function initApp(root: HTMLElement): void {
     store.set({ rawText, parseMode: mode });
 
     if (!rawText.trim()) {
-      store.set({ parsedValue: null, parseError: null, selectedPath: '$' });
+      store.set({ parsedValue: null, parseError: null, selectedPath: null });
       clearInlineError();
       editor.highlightError(null);
+      editor.highlightPath(null);
       tree.clear();
       return;
     }
@@ -327,9 +346,10 @@ export function initApp(root: HTMLElement): void {
     }
 
     if (!rawText.trim()) {
-      store.set({ parsedValue: null, parseError: null, selectedPath: '$' });
+      store.set({ parsedValue: null, parseError: null, selectedPath: null });
       clearInlineError();
       editor.highlightError(null);
+      editor.highlightPath(null);
       tree.clear();
       return;
     }
@@ -480,6 +500,30 @@ export function initApp(root: HTMLElement): void {
     editor.focus();
   });
 
+  prettifyBtn.addEventListener('click', () => {
+    const raw = editor.getValue();
+    if (!raw.trim()) {
+      return;
+    }
+
+    if (exceedsSizeCap(raw)) {
+      commitFriendlyError(raw, TOO_LARGE_MESSAGE);
+      return;
+    }
+
+    const result = parseAndFormatJson(raw, store.get().parseMode);
+    if ('error' in result) {
+      commitInvalidState(raw, result.error);
+      return;
+    }
+
+    editor.setValue(result.formatted);
+    commitValidState(result.formatted, result.value);
+    showParseWarnings(result.warnings);
+    toast.show('Prettified JSON');
+    editor.focus();
+  });
+
   clearBtn.addEventListener('click', () => {
     clearWorkspace();
   });
@@ -575,6 +619,106 @@ function initSplitter(
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
   });
+}
+
+function findPathRange(rawText: string, path: string): { from: number; to: number } | null {
+  try {
+    const pointer = pathToJsonPointer(path);
+    const { pointers } = parseJsonSourceMap(rawText);
+    const location = pointers[pointer];
+    if (!location?.value || !location?.valueEnd) {
+      return null;
+    }
+
+    const from = clamp(location.value.pos, 0, rawText.length);
+    const to = clamp(Math.max(from + 1, location.valueEnd.pos), 0, rawText.length);
+    return { from, to };
+  } catch {
+    return null;
+  }
+}
+
+function pathToJsonPointer(path: string): string {
+  if (path === '$') {
+    return '';
+  }
+
+  const segments: string[] = [];
+  let index = 1;
+
+  while (index < path.length) {
+    const char = path[index];
+
+    if (char === '.') {
+      index += 1;
+      const start = index;
+      while (index < path.length && path[index] !== '.' && path[index] !== '[') {
+        index += 1;
+      }
+      if (index > start) {
+        segments.push(path.slice(start, index));
+      }
+      continue;
+    }
+
+    if (char === '[') {
+      if (path[index + 1] === '"') {
+        index += 2;
+        let segment = '';
+        let escaped = false;
+
+        while (index < path.length) {
+          const current = path[index];
+          if (escaped) {
+            segment += current;
+            escaped = false;
+            index += 1;
+            continue;
+          }
+          if (current === '\\') {
+            escaped = true;
+            index += 1;
+            continue;
+          }
+          if (current === '"') {
+            break;
+          }
+          segment += current;
+          index += 1;
+        }
+
+        segments.push(segment);
+        index += 2;
+        continue;
+      }
+
+      index += 1;
+      const start = index;
+      while (index < path.length && path[index] !== ']') {
+        index += 1;
+      }
+      if (index > start) {
+        segments.push(path.slice(start, index));
+      }
+      index += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  if (segments.length === 0) {
+    return '';
+  }
+  return `/${segments.map(escapeJsonPointerSegment).join('/')}`;
+}
+
+function escapeJsonPointerSegment(segment: string): string {
+  return segment.replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 function byId<T extends HTMLElement>(id: string): T {
